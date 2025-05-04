@@ -1,0 +1,122 @@
+﻿.busy-indicator {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 999;
+    background: transparent;
+    padding: 6px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    border: transparent;
+}
+
+    .busy-indicator.active {
+        animation: fade-in-once 0.5s ease-out forwards, fade-pulse 3.5s infinite ease-in-out 0.875s;
+        opacity: 1;
+    }
+
+    .busy-indicator.inactive {
+        animation: fade-out-once 0.5s ease-in forwards;
+    }
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    transform-style: preserve-3d;
+    perspective: 600px; /* Slightly reduced perspective */
+    position: relative;
+    display: none;
+}
+
+/* Changed to 7.5s (3x slower than 2.5s) with linear timing for smoother slow rotation */
+.busy-indicator.active .spinner {
+    display: block;
+    animation: spinner-vicecity 3.5s infinite linear;
+}
+
+.spinner > div {
+    height: 100%;
+    position: absolute;
+    width: 100%;
+    border: 1px solid #ff8c42; /* Scaled down from 1.5px */
+    background: rgba(10, 10, 10, 0.2);
+    box-shadow: inset 0 0 5px rgba(255, 140, 66, 0.3), /* Reduced glow */
+    0 0 3px rgba(255, 140, 66, 0.5); /* Tighter outer glow */
+    backdrop-filter: blur(0.3px); /* Finer blur */
+    transform-origin: center;
+}
+
+.spinner div:nth-of-type(1) {
+    transform: rotateY(0deg) translateZ(10px);
+}
+
+.spinner div:nth-of-type(2) {
+    transform: rotateY(90deg) translateZ(10px);
+}
+
+.spinner div:nth-of-type(3) {
+    transform: rotateY(180deg) translateZ(10px);
+}
+
+.spinner div:nth-of-type(4) {
+    transform: rotateY(-90deg) translateZ(10px);
+}
+
+.spinner div:nth-of-type(5) {
+    transform: rotateX(90deg) translateZ(10px);
+}
+
+.spinner div:nth-of-type(6) {
+    transform: rotateX(-90deg) translateZ(10px);
+}
+
+/* Adjusted keyframes for smoother slow rotation */
+@keyframes spinner-vicecity {
+    0% {
+        transform: rotate(0deg) rotateX(0deg) rotateY(0deg);
+    }
+
+    50% {
+        transform: rotate(180deg) rotateX(180deg) rotateY(180deg);
+    }
+
+    100% {
+        transform: rotate(0deg) rotateX(0deg) rotateY(0deg);
+    }
+}
+
+/* Rest of your keyframes remain unchanged */
+@keyframes fade-in-once {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes fade-out-once {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        display: none;
+    }
+}

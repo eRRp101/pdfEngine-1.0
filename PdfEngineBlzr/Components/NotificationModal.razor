@@ -1,0 +1,24 @@
+﻿<div class="n-modal @(IsVisible ? "show" : "")" @onclick="CloseModal">
+    <div class="n-modal-content" @onclick:stopPropagation>
+        <h2 class="n-modal-header">@Header</h2>
+        <hr/>
+        <p class="n-modal-message">@Message</p>
+        <hr/>
+        <div class="n-modal-footer">
+            <button class="btn-pd" @onclick="CloseModal">Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string Header { get; set; } = "Notice";
+    [Parameter] public string Message { get; set; } = "Something happened!";
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private void CloseModal()
+    {
+        IsVisible = false;
+        OnClose.InvokeAsync();
+    }
+}

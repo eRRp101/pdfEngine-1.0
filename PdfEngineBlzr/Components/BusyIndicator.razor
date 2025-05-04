@@ -1,0 +1,15 @@
+﻿<div class="busy-indicator @(IsLoading ? "active" : "inactive")">
+    <div class="spinner">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsLoading { get; set; }
+}

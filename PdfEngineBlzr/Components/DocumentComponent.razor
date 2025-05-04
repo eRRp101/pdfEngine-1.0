@@ -1,0 +1,364 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+@using PdfEngineBlzr;
+@using PdfEngineBlzr.Services;
+@using PdfEngineBlzr.Model;
+@using PdfEngineBlzr.Components;
+@using PdfEngineBlzr.Components.Icons;
+@using ModelLibrary.Model;
+@inject IPdfApiService _pdfApiService
+@inject IJSRuntime JSRuntime
+
+<NotificationModal IsVisible="@_modalVisible"
+Header="Error"
+Message="@_modalMessage"
+OnClose="HideModal" />
+
+<div class="documents-panel">
+
+    <!-- Header -->
+    <div class="documents-header">
+        <div class="title-with-spinner">
+            <h3 class="documents-title">DOCUMENTS</h3>
+
+            <div class="header-spinner">
+                <BusyIndicator IsLoading="@_isBusy" />
+            </div>
+
+            <span class="busy-message">@_isBusyMessage</span>
+        </div>
+
+        <div class="header-right-section">
+
+            @*             <button @onclick="IsBusyTest" class="refresh-btn" title="Test Busy Indicator">
+                <RefreshIcon />
+            </button> *@
+
+        </div>
+    </div>
+
+
+
+
+    <!-- Documents List -->
+    <div class="document-list-container">
+        <div class="documents-list">
+            @if (_pdfList.Any())
+            {
+                @foreach (var pdf in _pdfList)
+                {
+                    <div class="document-card @(_expandedCardId == pdf.Id ? "expanded" : "") @(pdf.IsDeleting ? "deleting" : "")" 
+                         @key="pdf.Id" 
+                         @onclick="() => ToggleCard(pdf.Id)">
+                        <div class="document-card-content">
+                            <div class="document-icon" title="Resume">
+                                <DocumentIcon/> 
+                            </div>
+                            <div class="document-details">
+                                <div class="document-name">@pdf.FileName</div>
+                                <div class="document-meta">
+                                    <span class="document-date">@pdf.FileContent.UploadedAt.ToString("dd-MM-yyy HH:mm")</span>
+                                    <span class="document-pages">@pdf.FileContent.PageCount @(pdf.FileContent.PageCount <= 1 ? "Page" : "Pages")</span>
+                                </div>
+                            </div>
+                            <button class="document-delete" title="Delete" 
+                            @onclick="() => DeleteFile(pdf.Id)"
+                            @onclick:stopPropagation="true">
+                                <TrashIcon/>
+                            </button>
+                        </div>
+
+                        @if (_expandedCardId == pdf.Id)
+                        {
+                            <div class="document-summary @(_expandedCardId == pdf.Id ? "show" : "")">
+                                <div class="summary-content">
+                                    @((MarkupString)FormatCardSummary(pdf.FileContent.Summary))
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <div class="upload-icon-wrapper" @onclick="TriggerFilePicker">
+                        <BiggerDocumentIcon/>
+                    </div>
+                    <p>No documents uploaded</p>
+                    <p class="empty-state-hint">Click below to upload PDFs</p>
+                </div>
+
+                <div class="hidden-file-input" @ref="fileInputWrapper">
+                    <InputFile id="UploadFile" class="file-input" OnChange="HandleFileSelected" multiple />
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Upload Area -->
+    <div @ref="_dropZoneRef" class="upload-area @(_isDragging ? "dragging" : "")">
+        <label for="UploadFile" class="upload-label">
+            <div class="upload-content" @onclick="TriggerFilePicker">
+                <UploadIcon/>
+                <span>Click to select file or drag & drop'em in this field.</span>
+            </div>
+            <div class="hidden-file-input" @ref="fileInputWrapper">
+                <InputFile id="UploadFile" class="file-input" OnChange="HandleFileSelected" multiple />
+            </div>
+        </label>
+    </div>
+</div>
+
+@code {
+
+    private ElementReference _dropZoneRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeDropZone", _dropZoneRef, DotNetObjectReference.Create(this));
+        }
+    }
+
+    private bool _isDragging = false; 
+
+    private async Task HandleDragStart()
+    {
+        _isDragging = true;
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleDragEnd()
+    {
+        _isDragging = false;
+        await Task.CompletedTask; 
+    }
+
+    private async Task HandleDrop(DragEventArgs e)
+    {
+        await JSRuntime.InvokeVoidAsync("initializeDropZone", e);  
+        await Task.CompletedTask;  
+    }
+
+    private async Task InitializeDropZone()
+    {
+        await JSRuntime.InvokeVoidAsync("initializeDropZone", "dropZoneElement", DotNetObjectReference.Create(this));
+    }
+
+    private void IsBusyTest()
+    {
+        if (!_isBusy)
+        {
+            _isBusy = true;
+        }
+        else
+        {
+            _isBusy = false;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPdfList();
+        await base.OnInitializedAsync();
+    }
+
+    private List<PdfData> _pdfList = new();
+    private ElementReference fileInputWrapper;
+
+    private bool _isBusy = false;
+    private string _isBusyMessage = string.Empty;
+    private void IsBusy(bool isBusy, string isBusyMessage = "")
+    {
+        _isBusy = isBusy;
+        _isBusyMessage = isBusyMessage;
+    }
+
+    //modal
+    private bool _modalVisible = false;
+    private string _modalMessage = string.Empty;
+    private void ShowModal(string errorMessage)
+    {
+        _modalMessage = errorMessage;
+        _modalVisible = true;
+    }
+    private void HideModal()
+    {
+        _modalVisible = false;
+    }
+
+    //expand-card
+    private int? _expandedCardId = null;
+    private void ToggleCard(int cardId)
+    {
+        _expandedCardId = _expandedCardId == cardId ? null : cardId;
+    }
+
+private string FormatCardSummary(string summary)
+{
+    if (string.IsNullOrWhiteSpace(summary))
+        return string.Empty;
+
+    var termsToFormat = new HashSet<string> 
+    { 
+        "Main Topic", 
+        "Key Points", 
+        "Conclusions", 
+        "Application" 
+    };
+
+    var lines = summary.Split('\n');
+    var processedLines = new List<string>();
+
+    foreach (var line in lines)
+    {
+        var processedLine = line;
+        
+        foreach (var term in termsToFormat)
+        {
+            if (line.StartsWith(term))
+            {
+                // Remove the term and any following colon/space
+                var remainingText = line.Substring(term.Length).TrimStart(':', ' ', '\t');
+                
+                // Format with colored underlined term and text below
+                processedLine = $"<span style='color: #ff8c42;'>{term}</span><br/>{remainingText}";
+                break;
+            }
+        }
+        
+        if (!string.IsNullOrWhiteSpace(processedLine))
+        {
+            processedLines.Add(processedLine);
+        }
+    }
+
+    return string.Join("<br><br>", processedLines);
+}
+
+    private void LoadTestList()
+    {
+        var testList = new List<PdfData>();
+        for (int i = 1; i < 15; i++)
+        {
+            var pdfData = new PdfData()
+                {
+                    Id = i,
+                    FileName = $"TestFile: {i}",
+                };
+            pdfData.FileContent.Summary = "1. MAIN TOPIC: Climate change and its impacts on the environment and human society.\n2. KEY POINTS: Human activities, such as burning fossil fuels and deforestation, are causing climate change, resulting in rising global temperatures, melting ice caps, extreme weather events, and ocean acidification. These effects pose significant threats to coastal communities, agriculture, infrastructure, and human lives.\n3. CONCLUSIONS: The findings highlight the urgent need for global action to mitigate climate change and reduce greenhouse gas emissions. Failure to address these issues could have severe consequences for the environment and human well-being.\n4. APPLICATIONS: The information presented in this document can be used to inform policymakers, businesses, and individuals about the importance of implementing sustainable practices and reducing carbon emissions to combat climate change.";
+            testList.Add(pdfData);
+        }
+        _pdfList = testList;
+    }
+
+    private async Task LoadPdfList()
+    {
+        try
+        {
+            IsBusy(true, "Loading files...");
+            StateHasChanged();
+            _pdfList = await _pdfApiService.GetDocumentsAsync();
+            IsBusy(false);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            IsBusy(false);
+            ShowModal(ex.Message);
+        }
+    }
+
+    //File
+private async Task DeleteFile(int id)
+{
+    try
+    {
+        // Find the card being deleted
+        var cardToDelete = _pdfList.FirstOrDefault(p => p.Id == id);
+        if (cardToDelete == null) return;
+        
+        // Add deleting class to trigger animation
+        cardToDelete.IsDeleting = true;
+        StateHasChanged();
+        
+        // Wait for animation to complete (400ms matches CSS animation)
+        await Task.Delay(400);
+        
+        // Actually delete the file
+        var response = await _pdfApiService.DeleteDocumentAsync(id);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadPdfList();
+        }
+        else
+        {
+            Console.Error.WriteLine($"Error deleting file: {response.ReasonPhrase}");
+            cardToDelete.IsDeleting = false;
+            StateHasChanged();
+        }
+    }
+    catch (Exception ex)
+    {
+        ShowModal(ex.Message);
+    }
+}
+
+    private async Task UploadFile(IBrowserFile file)
+    {
+        try
+        {
+            await _pdfApiService.UploadDocumentAsync(file);
+            await LoadPdfList(); 
+        }
+        catch (Exception ex)
+        {
+            IsBusy(false);
+            ShowModal(ex.Message);
+        }
+    }
+
+private async Task HandleFileSelected(InputFileChangeEventArgs e)
+{
+    try
+    {
+        var files = e.GetMultipleFiles();
+        if (!files.Any()) return;
+
+        // File Process/Upload UI Feedback
+        foreach (var file in files)
+        {
+            try
+            {
+                IsBusy(true, $"Uploading {file.Name}...");
+                StateHasChanged(); 
+                
+                await UploadFile(file);
+                
+                IsBusy(true, "Processing...");
+                StateHasChanged(); 
+                
+                await Task.Delay(500);
+            }
+            finally
+            {
+                IsBusy(false);
+                StateHasChanged(); 
+            }
+        }
+        
+        await LoadPdfList();
+    }
+    catch (Exception ex)
+    {
+        IsBusy(false);
+        ShowModal(ex.Message);
+    }
+}
+
+    private async Task TriggerFilePicker()
+    {
+        await JSRuntime.InvokeVoidAsync("triggerFilePicker", fileInputWrapper);
+    }
+}

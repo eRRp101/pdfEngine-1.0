@@ -1,0 +1,313 @@
+﻿@page "/chat"
+@using Microsoft.AspNetCore.Components.Web
+@using ModelLibrary.Model
+@using System.Text.RegularExpressions
+@using System.Text
+@using PdfEngineBlzr.Services
+@using PdfEngineBlzr.Model
+@using PdfEngineBlzr.Components
+@using PdfEngineBlzr.Components.Icons
+@inject HttpClient _httpClient
+@inject IPdfApiService _pdfApiService
+@inject IJSRuntime JSRuntime
+
+
+<NotificationModal IsVisible="@_modalVisible" Header="Error" Message="@_modalMessage" onclose="HideModal" />
+
+<div class="chat-container">
+    <!-- Messages Header -->
+    <div class="chat-header">
+        <div class="title-with-spinner">
+            <h3 class="chat-title">pdfEngine</h3>
+            <div class="header-spinner">
+                <BusyIndicator IsLoading="@_isSpinnerVisible" />
+            </div>
+            <span class="busy-message">@_isBusyMessage</span>
+        </div>
+
+        <div class="header-right-section">
+            <div class="chat-status">
+                @if (!_isConnected)
+                {
+                    <span class="connection-indicator-false"></span>
+                    <span>Offline</span>
+                }
+                else
+                {
+                    <span class="connection-indicator-true"></span>
+                    <span>Connected</span>
+                }
+            </div>
+
+            <button class="refresh-btn" @onclick="CheckConnection" title="Reconnect">
+                <RefreshIcon OnClick="CheckConnection" />
+            </button>
+        </div>
+    </div>
+
+    <!-- Messages Area -->
+    <div class="messages-area" @ref="messagesContainer" @onclick="FocusInput">
+        <div class="messages">
+            @foreach (var (message, index) in Messages.Select((m, i) => (m, i)))
+            {
+                if (message.IsUserMessage)
+                {
+                    <div class="user-message" @key="message.Id" style="animation-delay: @(index * 50)ms">
+                        <div class="message-content">
+                            <div class="message-text">@message.Content</div>
+                        </div>
+                        <div class="message-time">
+                            @message.TimeWritten.ToString("HH:mm")
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="ai-message" @key="message.Id">
+                        <div class="message-content">
+                            <div class="message-text">@message.Content</div>
+
+                            <div class="icon-group @(message.References != null && message.References.Any() ? "both-icons" : "single-icon")">
+                                <button class="context-toggle"
+                                        @onclick="@(() => CopyToClipboard(message.Content))"
+                                        @onclick:stopPropagation="true"
+                                        title="Copy Answer">
+                                    <CopyIcon />
+                                </button>
+
+                                @if (message.References != null && message.References.Any())
+                                {
+                                    <button class="context-toggle"
+                                            @onclick="@(() => ToggleContext(message.Id))"
+                                            @onclick:stopPropagation="true"
+                                            title="View References">
+                                        <ContextIcon />
+                                    </button>
+                                }
+                            </div>
+
+                            @if (message.References != null && message.References.Any())
+                            {
+                                <div class="context-dropdown @( _expandedContextIds.Contains(message.Id) ? "expanded" : "" )">
+                                    <div class="context-content">
+                                        <p class="answer-context-style">References</p>
+                                        <div class="message-answercontext">@SanitizedAnswerContext(message.AnswerContext)</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div class="message-time">
+                            @message.TimeWritten.ToString("HH:mm")
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+        <div class="input-container">
+            <textarea id="chat-input"
+                      class="chat-input"
+                      placeholder="Type message..."
+                      @bind="_userInput"
+                      @bind:event="oninput"
+                      @onkeydown="HandleKeyDown"
+                      @ref="chatInputRef"
+                      rows="1"
+                      disabled="@_isBusy"></textarea>
+            <button @onclick="SendMessage" class="send-button"></button>
+        </div>
+        <div class="input-footer">
+            <span class="input-hint">Shift + Enter for new line</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Message> Messages = new();
+    private ElementReference chatInputRef;
+    private ElementReference messagesContainer;
+    private string _userInput = string.Empty;
+    private HashSet<Guid> _expandedContextIds = new();
+    private readonly string _sessionId = $"session-{Guid.NewGuid()}";
+
+    private bool _isBusy = false;
+    private string _isBusyMessage = string.Empty;
+    private bool _isSpinnerVisible = false;
+    private bool _isConnected;
+    private bool _modalVisible = false;
+    private string _modalMessage = string.Empty;
+
+    private async Task CopyToClipboard(string content)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("copyToClipboard", content);
+        }
+        catch (Exception ex)
+        {
+            ShowModal($"Copy failed: {ex.Message}");
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput)) return;
+        var userInput = _userInput.Trim();
+        _userInput = string.Empty;
+        await ResetInputHeight();
+
+        Messages.Add(new Message { Content = userInput, TimeWritten = DateTime.UtcNow, IsUserMessage = true });
+        await IsBusy(true, "Generating...");
+        StateHasChanged();
+        await Task.Delay(300);
+        await ScrollToBottom();
+
+        try
+        {
+            var responseText = await _pdfApiService.ChatAsync(userInput, _sessionId);
+            Messages.Add(new Message
+                {
+                    Content = responseText.Answer,
+                    AnswerContext = responseText.AnswerContext,
+                    References = responseText.References,
+                    TimeWritten = DateTime.UtcNow,
+                    IsUserMessage = false
+                });
+
+            await IsBusy(false);
+            StateHasChanged();
+            await Task.Delay(300);
+            await ScrollToBottom();
+        }
+        catch (Exception ex)
+        {
+            ShowModal($"Error: {ex.Message}");
+            await IsBusy(false);
+        }
+        finally
+        {
+            await FocusInput();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !_isBusy)
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottom() => await JSRuntime.InvokeVoidAsync("chatTextarea.scrollToBottom");
+    private async Task FocusInput() { if (!_isBusy) await JSRuntime.InvokeVoidAsync("chatTextarea.focusInput"); }
+    private async Task ResetInputHeight() => await JSRuntime.InvokeVoidAsync("chatTextarea.reset");
+
+    private void ToggleContext(Guid messageId)
+    {
+        if (_expandedContextIds.Contains(messageId)) _expandedContextIds.Remove(messageId);
+        else _expandedContextIds.Add(messageId);
+    }
+
+    private MarkupString SanitizedAnswerContext(string rawContext)
+    {
+        var lines = rawContext.Split('\n');
+        var sb = new StringBuilder();
+        string? currentTitle = null;
+        var contentBuffer = new List<string>();
+
+        void FlushSection()
+        {
+            if (currentTitle != null)
+            {
+                sb.Append($"<span style=\"font-size: 1.1em; color: #ff8c42;\">{currentTitle}</span><br/>");
+                var contentLine = string.Join(" ", contentBuffer.Select(line => line.Trim()));
+                sb.Append(contentLine).Append("<br/><br/>");
+                contentBuffer.Clear();
+            }
+        }
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            var match = Regex.Match(trimmed, @"^(.*\.pdf \(Page \d+\)):(.*)?$");
+            if (match.Success)
+            {
+                FlushSection();
+                currentTitle = match.Groups[1].Value.Trim();
+                var firstLineContent = match.Groups[2].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(firstLineContent)) contentBuffer.Add(firstLineContent);
+            }
+            else if (!string.IsNullOrWhiteSpace(trimmed)) contentBuffer.Add(trimmed);
+        }
+
+        FlushSection();
+        return new MarkupString(sb.ToString());
+    }
+
+    private async Task IsBusy(bool isBusy, string isBusyMessage = "")
+    {
+        if (isBusy)
+        {
+            _isBusy = true;
+            _isSpinnerVisible = true;
+            _isBusyMessage = isBusyMessage;
+        }
+        else
+        {
+            _isBusyMessage = string.Empty;
+            await Task.Delay(300);
+            _isBusy = false;
+            _isSpinnerVisible = false;
+        }
+        StateHasChanged();
+    }
+
+    private async Task CheckConnection()
+    {
+        try
+        {
+            await IsBusy(true, "Connecting...");
+            await Task.Delay(1500);
+            _isConnected = await _pdfApiService.IsConnected();
+            await IsBusy(false);
+        }
+        catch (Exception ex)
+        {
+            ShowModal(ex.Message);
+            _isConnected = false;
+            await IsBusy(false);
+        }
+    }
+
+    private void ShowModal(string errorMessage)
+    {
+        _modalMessage = errorMessage;
+        _modalVisible = true;
+        StateHasChanged();
+    }
+
+    private void HideModal()
+    {
+        _modalVisible = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckConnection();
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("chatTextarea.init");
+            await FocusInput();
+        }
+        await ScrollToBottom();
+    }
+}

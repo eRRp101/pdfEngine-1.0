@@ -1,0 +1,25 @@
+﻿.main-container {
+    display: grid;
+    grid-template-columns: 60% 40%; 
+    height: 100vh;
+    width: 100vw; 
+    margin: 0;
+    padding: 0;
+    background: var(--bg-darker);
+    box-sizing: border-box;
+    overflow: hidden; 
+}
+
+.chat-column {
+    height: 100%;
+    overflow: hidden; 
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.pdf-column {
+    height: 100%;
+    overflow: hidden; 
+    padding: 10px;
+    box-sizing: border-box;
+}
