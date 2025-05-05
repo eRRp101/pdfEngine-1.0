@@ -23,7 +23,9 @@
 - Blazor .NET 8
 - SQLite
 - FAISS
-- OpenAI embedding & GPT-completion
+- OpenAI embedding
+- Vector search
+- GPT-completion
 - Requires active OpenAI key
 - Run ASP.NET migrations for EF/SQLite file persistance
 
