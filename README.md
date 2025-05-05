@@ -1,5 +1,5 @@
 # pdfEngine 
-# RAG pipeline for pdf storage and realtime AI search & discussion/converse tool. 
+# RAG pipeline for pdf storage and realtime AI search & discussion tool. 
 - Requires active OpenAI key
 - Run ASP.NET migrations for EF/SQLite
 - WIP demo, obv not production ready.
