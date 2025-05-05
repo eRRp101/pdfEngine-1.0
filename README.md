@@ -23,7 +23,7 @@
 - Blazor .NET 8
 - SQLite
 - FAISS
-- OpenAI embedding
+- OpenAI embedding & chunking
 - Vector search
 - GPT-completion
 - Requires active OpenAI key
