@@ -15,7 +15,7 @@
 - AI Search uploaded document content through chat-window query
 - Will generate GPT response to query and respond with top attached references (if any)
 - Realtime chat history and auto query classifier means you can not only search the documents, but discuss the content outside of the uploaded material
-- Super responsive UI
+- Super responsive UI & design by yours truly
 
 
 # Stack
@@ -25,9 +25,9 @@
 - OpenAI embedding & chunking
 - FAISS
 - Vector search
-- GPT-completion
+- GPT-completion (3.5 turbo for demo, 4+ for eventual release)
 
-
-- Requires active OpenAI key
+# Run demo
+- Requires active OpenAI API key, insert at pdfEngineAPI/appsettings.Development.json 
 - Run ASP.NET migrations for EF/SQLite file persistance
-
+- Demo configuration, will purposely exit and throw uncaught exception.
