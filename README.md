@@ -1,4 +1,4 @@
-# pdfEngine WIP demo
+# pdfEngine demo wip
 - RAG pipeline for pdf storage and realtime AI search & discussion tool
 
 ![image](https://github.com/user-attachments/assets/e18ab940-a5bf-4c32-b321-94b5950f56d7)
@@ -22,10 +22,12 @@
 - ASP.NET WebAPI .NET 8 + Swagger
 - Blazor .NET 8
 - SQLite
-- FAISS
 - OpenAI embedding & chunking
+- FAISS
 - Vector search
 - GPT-completion
+
+
 - Requires active OpenAI key
 - Run ASP.NET migrations for EF/SQLite file persistance
 
