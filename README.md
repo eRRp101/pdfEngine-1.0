@@ -7,7 +7,7 @@
 
 - Upload pdf documents and let it list the item
 - Generates a resume which toggles on-click at sidebar on upload
-- Drop all your PDF's in the designated area and let the AI go ham while the loading spinner mesmerizes you
+- Drop all your PDF's in the designated area and let the AI go ham while the loading spinner mesmerizes 
 
 ![firefox_Oz8WByliLZ](https://github.com/user-attachments/assets/d4da0376-421a-402e-b4e7-7e69284d4e0f)
 
