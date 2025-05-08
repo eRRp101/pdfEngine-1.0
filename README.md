@@ -21,7 +21,7 @@
 - SQLite
 - OpenAI embedding & chunking
 - FAISS
-- Vector search
+- Semantic vector search
 - GPT-completion (3.5 turbo for demo)
 
 # Run demo
